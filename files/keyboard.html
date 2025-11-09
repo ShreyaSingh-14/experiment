@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wireless Keyboard</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #1a237e;
+      margin-bottom: 15px;
+    }
+
+    textarea {
+      width: 90%;
+      max-width: 600px;
+      height: 300px;
+      font-size: 22px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 2px solid #90caf9;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      resize: none;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #1976d2;
+      box-shadow: 0 0 10px rgba(25,118,210,0.3);
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: #444;
+      font-size: 16px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h2>Wireless Keyboard</h2>
+  <textarea id="inputBox" placeholder="Start typing or paste text..."></textarea>
+  <p class="hint">Type or paste using your phone keyboard — your laptop will type it.</p>
+
+  <script>
+    const server = 'http://{{IP}}:5000/key';
+    const inputBox = document.getElementById('inputBox');
+    let previousValue = '';
+
+    async function sendKey(key, type = 'char') {
+      try {
+        await fetch(server, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, type })
+        });
+      } catch (err) {
+        console.error('Error sending key:', err);
+      }
+    }
+
+    // Normal typing detection
+    inputBox.addEventListener('input', async () => {
+      const newText = inputBox.value;
+
+      if (newText.length < previousValue.length) {
+        // Handle backspace
+        const diff = previousValue.length - newText.length;
+        for (let i = 0; i < diff; i++) await sendKey('backspace');
+      } else if (newText.length > previousValue.length) {
+        // Handle added text
+        const added = newText.slice(previousValue.length);
+        await sendKey(added, 'text'); // send chunk instead of char-by-char
+      }
+
+      previousValue = newText;
+    });
+
+    // Clipboard paste handling
+    inputBox.addEventListener('paste', async (e) => {
+      e.preventDefault();
+      const data = (e.clipboardData || window.clipboardData).getData('text');
+      
+      // Update textarea content
+      const start = inputBox.selectionStart;
+      const end = inputBox.selectionEnd;
+      inputBox.value = inputBox.value.substring(0, start) + data + inputBox.value.substring(end);
+      previousValue = inputBox.value;
+
+      // Send whole pasted chunk at once
+      await sendKey(data, 'text');
+    });
+  </script>
+</body>
+</html>
